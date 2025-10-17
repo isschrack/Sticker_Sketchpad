@@ -16,30 +16,79 @@ canvas.height = 256;
 document.body.append(canvas);
 
 const ctx = canvas.getContext("2d")!;
+
+// Data model: an array of strokes. Each stroke is an array of points { x, y }.
+const strokes: Array<Array<{ x: number; y: number }>> = [];
+let currentStroke: Array<{ x: number; y: number }> | null = null;
+
 const cursor = { active: false, x: 0, y: 0 };
 
 const clearBtn = document.getElementById("clearBtn") as HTMLButtonElement;
 clearBtn.onclick = () => {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Clear the model and redraw
+  strokes.length = 0;
+  currentStroke = null;
+  // Notify observers that the drawing changed
+  canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 };
+
+// Redraw helper: clears canvas and draws all strokes from the model
+function redrawAll() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 1;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#000";
+
+  for (const stroke of strokes) {
+    if (stroke.length === 0) continue;
+    ctx.beginPath();
+    ctx.moveTo(stroke[0].x, stroke[0].y);
+    for (let i = 1; i < stroke.length; i++) {
+      const p = stroke[i];
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+}
+
+// Observe changes and redraw only when model changes
+canvas.addEventListener("drawing-changed", () => {
+  redrawAll();
+});
 
 canvas.addEventListener("mousedown", (e) => {
   cursor.x = e.offsetX;
   cursor.y = e.offsetY;
   cursor.active = true;
+
+  // Start a new stroke and add the first point
+  currentStroke = [{ x: cursor.x, y: cursor.y }];
+  strokes.push(currentStroke);
+  // Notify observers (redraw) after the new point
+  canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  if (cursor.active) {
-    ctx.beginPath();
-    ctx.moveTo(cursor.x, cursor.y);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
+  if (cursor.active && currentStroke) {
+    // Append new point to the current stroke
+    const pt = { x: e.offsetX, y: e.offsetY };
+    currentStroke.push(pt);
+    // Update cursor
+    cursor.x = pt.x;
+    cursor.y = pt.y;
+    // Notify observers that the drawing changed (causes redraw)
+    canvas.dispatchEvent(new CustomEvent("drawing-changed"));
   }
 });
 
 canvas.addEventListener("mouseup", (e) => {
   cursor.active = false;
+  currentStroke = null;
+});
+
+// Also handle mouseleave to end stroke if the user drags out of canvas
+canvas.addEventListener("mouseleave", () => {
+  cursor.active = false;
+  currentStroke = null;
 });
