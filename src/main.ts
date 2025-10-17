@@ -7,6 +7,8 @@ document.body.innerHTML = `
   <div id="sketch-wrap">
     <canvas id="sketchpad" style="border:1px solid black;"></canvas>
     <button style="margin-top:8px;" id="clearBtn">Clear</button>
+    <button style="margin-top:8px;" id="undoBtn">Undo</button>
+    <button style="margin-top:8px;" id="redoBtn">Redo</button>
   </div>
 `;
 
@@ -19,6 +21,7 @@ const ctx = canvas.getContext("2d")!;
 
 // Data model: an array of strokes. Each stroke is an array of points { x, y }.
 const strokes: Array<Array<{ x: number; y: number }>> = [];
+const redoStrokes: Array<Array<{ x: number; y: number }>> = [];
 let currentStroke: Array<{ x: number; y: number }> | null = null;
 
 const cursor = { active: false, x: 0, y: 0 };
@@ -28,8 +31,31 @@ clearBtn.onclick = () => {
   // Clear the model and redraw
   strokes.length = 0;
   currentStroke = null;
+  // Clearing the canvas invalidates the redo stack
+  redoStrokes.length = 0;
   // Notify observers that the drawing changed
   canvas.dispatchEvent(new CustomEvent("drawing-changed"));
+};
+
+const undoBtn = document.getElementById("undoBtn") as HTMLButtonElement;
+undoBtn.onclick = () => {
+  if (strokes.length === 0) return;
+  const stroke = strokes.pop();
+  if (stroke) {
+    // Push the removed stroke onto the redo stack
+    redoStrokes.push(stroke);
+    canvas.dispatchEvent(new CustomEvent("drawing-changed"));
+  }
+};
+
+const redoBtn = document.getElementById("redoBtn") as HTMLButtonElement;
+redoBtn.onclick = () => {
+  if (redoStrokes.length === 0) return;
+  const stroke = redoStrokes.pop();
+  if (stroke) {
+    strokes.push(stroke);
+    canvas.dispatchEvent(new CustomEvent("drawing-changed"));
+  }
 };
 
 // Redraw helper: clears canvas and draws all strokes from the model
@@ -63,6 +89,8 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.active = true;
 
   // Start a new stroke and add the first point
+  // Starting a new stroke should clear the redo stack (new branch)
+  redoStrokes.length = 0;
   currentStroke = [{ x: cursor.x, y: cursor.y }];
   strokes.push(currentStroke);
   // Notify observers (redraw) after the new point
