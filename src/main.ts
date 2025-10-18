@@ -88,6 +88,19 @@ class MarkerPreview implements ToolPreview {
 // Nullable global preview reference. When non-null, redrawAll will render it.
 let currentPreview: ToolPreview | null = null;
 
+// Single mutable detail object and a single CustomEvent instance for "tool-moved".
+// We reuse the same event object and update its detail object's properties before
+// dispatch so we don't allocate a new CustomEvent every time.
+const TOOL_MOVED_DETAIL: {
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  emoji: string | null;
+} = { x: 0, y: 0, width: currentLineWidth, emoji: null };
+const TOOL_MOVED_EVENT = new CustomEvent("tool-moved", {
+  detail: TOOL_MOVED_DETAIL,
+});
+
 class StickerPreview implements ToolPreview {
   x: number;
   y: number;
@@ -197,6 +210,11 @@ demonSticker.onclick = () => {
   currentSticker = String.fromCodePoint(0x1F479);
   clearAllSelections();
   demonSticker.classList.add("selectedTool");
+  TOOL_MOVED_DETAIL.emoji = currentSticker;
+  TOOL_MOVED_DETAIL.x = null;
+  TOOL_MOVED_DETAIL.y = null;
+  TOOL_MOVED_DETAIL.width = null;
+  canvas.dispatchEvent(TOOL_MOVED_EVENT);
 };
 
 alienSticker.onclick = () => {
@@ -204,6 +222,11 @@ alienSticker.onclick = () => {
   currentSticker = String.fromCodePoint(0x1F47D);
   clearAllSelections();
   alienSticker.classList.add("selectedTool");
+  TOOL_MOVED_DETAIL.emoji = currentSticker;
+  TOOL_MOVED_DETAIL.x = null;
+  TOOL_MOVED_DETAIL.y = null;
+  TOOL_MOVED_DETAIL.width = null;
+  canvas.dispatchEvent(TOOL_MOVED_EVENT);
 };
 
 ghostSticker.onclick = () => {
@@ -211,6 +234,11 @@ ghostSticker.onclick = () => {
   currentSticker = String.fromCodePoint(0x1F47B);
   clearAllSelections();
   ghostSticker.classList.add("selectedTool");
+  TOOL_MOVED_DETAIL.emoji = currentSticker;
+  TOOL_MOVED_DETAIL.x = null;
+  TOOL_MOVED_DETAIL.y = null;
+  TOOL_MOVED_DETAIL.width = null;
+  canvas.dispatchEvent(TOOL_MOVED_EVENT);
 };
 
 // Redraw helper: clears canvas and draws all strokes from the model
@@ -281,11 +309,11 @@ canvas.addEventListener("mousemove", (e) => {
       currentLineWidth,
     );
   }
-  canvas.dispatchEvent(
-    new CustomEvent("tool-moved", {
-      detail: { x: cursor.x, y: cursor.y, width: currentLineWidth },
-    }),
-  );
+  TOOL_MOVED_DETAIL.x = cursor.x;
+  TOOL_MOVED_DETAIL.y = cursor.y;
+  TOOL_MOVED_DETAIL.width = currentLineWidth;
+  TOOL_MOVED_DETAIL.emoji = currentTool === "sticker" ? currentSticker : null;
+  canvas.dispatchEvent(TOOL_MOVED_EVENT);
   canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 });
 
