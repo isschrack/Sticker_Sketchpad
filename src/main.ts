@@ -38,9 +38,19 @@ document.body.append(canvas);
 
 const ctx = canvas.getContext("2d")!;
 
-const strokes: MarkerLine[] = [];
-const redoStrokes: MarkerLine[] = [];
-let currentStroke: MarkerLine | null = null;
+// Any object that can be part of the display list should implement
+// display(ctx). Commands that can be interactively moved should also
+// implement drag(x,y).
+interface Displayable {
+  display(ctx: CanvasRenderingContext2D): void;
+  drag?(x: number, y: number): void;
+  toJSON?(): unknown;
+  clone?(): Displayable;
+}
+
+const strokes: Displayable[] = [];
+const redoStrokes: Displayable[] = [];
+let currentStroke: Displayable | null = null;
 
 // Current drawing width (used for new strokes). Keep this separate from ctx so
 // existing strokes retain their original width when redrawing.
@@ -183,21 +193,22 @@ thickBtn.onclick = () => {
 // Sticker button handlers: select sticker tool and remember which emoji
 demonSticker.onclick = () => {
   currentTool = "sticker";
-  currentSticker = "👹";
+  // Use the provided hex code U+1F479 for the demon sticker
+  currentSticker = String.fromCodePoint(0x1F479);
   clearAllSelections();
   demonSticker.classList.add("selectedTool");
 };
 
 alienSticker.onclick = () => {
   currentTool = "sticker";
-  currentSticker = "👽";
+  currentSticker = String.fromCodePoint(0x1F47D);
   clearAllSelections();
   alienSticker.classList.add("selectedTool");
 };
 
 ghostSticker.onclick = () => {
   currentTool = "sticker";
-  currentSticker = "👻";
+  currentSticker = String.fromCodePoint(0x1F47B);
   clearAllSelections();
   ghostSticker.classList.add("selectedTool");
 };
@@ -228,8 +239,21 @@ canvas.addEventListener("mousedown", (e) => {
   currentPreview = null;
 
   redoStrokes.length = 0;
-  currentStroke = new MarkerLine(cursor.x, cursor.y, "#000", currentLineWidth);
-  strokes.push(currentStroke);
+  if (currentTool === "sticker" && currentSticker) {
+    // Place a sticker command into the model. currentStroke holds the live
+    // sticker so subsequent drag calls will reposition it.
+    const s = new Sticker(cursor.x, cursor.y, currentSticker, 32);
+    currentStroke = s;
+    strokes.push(s);
+  } else {
+    currentStroke = new MarkerLine(
+      cursor.x,
+      cursor.y,
+      "#000",
+      currentLineWidth,
+    );
+    strokes.push(currentStroke);
+  }
   canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 });
 
@@ -238,8 +262,10 @@ canvas.addEventListener("mousemove", (e) => {
   cursor.y = e.offsetY;
 
   if (cursor.active && currentStroke) {
-    // Update the stroke being drawn
-    currentStroke.drag(e.offsetX, e.offsetY);
+    // Update the stroke being drawn (only if the object supports drag)
+    if (typeof currentStroke.drag === "function") {
+      currentStroke.drag(e.offsetX, e.offsetY);
+    }
     canvas.dispatchEvent(new CustomEvent("drawing-changed"));
     return;
   }
@@ -341,5 +367,60 @@ export class MarkerLine {
     const copy = new MarkerLine(0, 0, this.color, this.width);
     copy.points = this.points.map((p) => ({ x: p.x, y: p.y }));
     return copy;
+  }
+}
+
+// Sticker command: placed as a single object; drag(x,y) repositions it.
+export class Sticker implements Displayable {
+  x: number;
+  y: number;
+  emoji: string;
+  size: number;
+
+  constructor(x: number, y: number, emoji = "👻", size = 24) {
+    this.x = x;
+    this.y = y;
+    this.emoji = emoji;
+    this.size = size;
+  }
+
+  display(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.font = `${this.size}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.emoji, this.x, this.y);
+    ctx.restore();
+  }
+
+  // Reposition the sticker rather than recording a path
+  drag(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  toJSON() {
+    return {
+      type: "Sticker",
+      x: this.x,
+      y: this.y,
+      emoji: this.emoji,
+      size: this.size,
+    };
+  }
+
+  static fromJSON(
+    obj: { x?: number; y?: number; emoji?: string; size?: number },
+  ) {
+    return new Sticker(
+      obj.x ?? 0,
+      obj.y ?? 0,
+      obj.emoji ?? "👻",
+      obj.size ?? 24,
+    );
+  }
+
+  clone() {
+    return new Sticker(this.x, this.y, this.emoji, this.size);
   }
 }
