@@ -21,10 +21,14 @@ document.body.append(canvas);
 
 const ctx = canvas.getContext("2d")!;
 
-// Data model: an array of strokes. Each stroke is an array of points { x, y }.
-const strokes: Array<Array<{ x: number; y: number }>> = [];
-const redoStrokes: Array<Array<{ x: number; y: number }>> = [];
-let currentStroke: Array<{ x: number; y: number }> | null = null;
+type Stroke = { points: Array<{ x: number; y: number }>; width: number };
+const strokes: Stroke[] = [];
+const redoStrokes: Stroke[] = [];
+let currentStroke: Stroke | null = null;
+
+// Current drawing width (used for new strokes). Keep this separate from ctx so
+// existing strokes retain their original width when redrawing.
+let currentLineWidth = 1;
 
 const cursor = { active: false, x: 0, y: 0 };
 
@@ -62,13 +66,13 @@ redoBtn.onclick = () => {
 
 const thinBtn = document.getElementById("thinBtn") as HTMLButtonElement;
 thinBtn.onclick = () => {
-  ctx.lineWidth = Math.max(1, ctx.lineWidth - 5);
+  currentLineWidth = Math.max(1, currentLineWidth - 2);
   canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 };
 
 const thickBtn = document.getElementById("thickBtn") as HTMLButtonElement;
 thickBtn.onclick = () => {
-  ctx.lineWidth += 5;
+  currentLineWidth = currentLineWidth + 2;
   canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 };
 
@@ -81,11 +85,12 @@ function redrawAll() {
   ctx.strokeStyle = "#000";
 
   for (const stroke of strokes) {
-    if (stroke.length === 0) continue;
+    if (!stroke.points || stroke.points.length === 0) continue;
     ctx.beginPath();
-    ctx.moveTo(stroke[0].x, stroke[0].y);
-    for (let i = 1; i < stroke.length; i++) {
-      const p = stroke[i];
+    ctx.lineWidth = stroke.width ?? 1;
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    for (let i = 1; i < stroke.points.length; i++) {
+      const p = stroke.points[i];
       ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
@@ -105,7 +110,10 @@ canvas.addEventListener("mousedown", (e) => {
   // Start a new stroke and add the first point
   // Starting a new stroke should clear the redo stack (new branch)
   redoStrokes.length = 0;
-  currentStroke = [{ x: cursor.x, y: cursor.y }];
+  currentStroke = {
+    points: [{ x: cursor.x, y: cursor.y }],
+    width: currentLineWidth,
+  };
   strokes.push(currentStroke);
   // Notify observers (redraw) after the new point
   canvas.dispatchEvent(new CustomEvent("drawing-changed"));
@@ -115,7 +123,7 @@ canvas.addEventListener("mousemove", (e) => {
   if (cursor.active && currentStroke) {
     // Append new point to the current stroke
     const pt = { x: e.offsetX, y: e.offsetY };
-    currentStroke.push(pt);
+    currentStroke.points.push(pt);
     // Update cursor
     cursor.x = pt.x;
     cursor.y = pt.y;
