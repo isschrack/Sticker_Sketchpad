@@ -9,6 +9,8 @@ document.body.innerHTML = `
     <button style="margin-top:8px;" id="clearBtn">Clear</button>
     <button style="margin-top:8px;" id="undoBtn">Undo</button>
     <button style="margin-top:8px;" id="redoBtn">Redo</button>
+    <button style="margin-top:8px;" id="thinBtn">Thin</button>
+    <button style="margin-top:8px;" id="thickBtn">Thick</button>
   </div>
 `;
 
@@ -56,6 +58,18 @@ redoBtn.onclick = () => {
     strokes.push(stroke);
     canvas.dispatchEvent(new CustomEvent("drawing-changed"));
   }
+};
+
+const thinBtn = document.getElementById("thinBtn") as HTMLButtonElement;
+thinBtn.onclick = () => {
+  ctx.lineWidth = Math.max(1, ctx.lineWidth - 5);
+  canvas.dispatchEvent(new CustomEvent("drawing-changed"));
+};
+
+const thickBtn = document.getElementById("thickBtn") as HTMLButtonElement;
+thickBtn.onclick = () => {
+  ctx.lineWidth += 5;
+  canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 };
 
 // Redraw helper: clears canvas and draws all strokes from the model
@@ -171,7 +185,9 @@ export class MarkerLine {
     };
   }
 
-  static fromJSON(obj: any) {
+  static fromJSON(
+    obj: { color?: string; width?: number; points?: Point[] },
+  ): MarkerLine {
     const ml = new MarkerLine(0, 0, obj.color, obj.width);
     ml.points = obj.points ?? [];
     return ml;
