@@ -6,11 +6,28 @@ document.body.innerHTML = `
 
   <div id="sketch-wrap">
     <canvas id="sketchpad" style="border:1px solid black;"></canvas>
-    <button style="margin-top:8px;" id="clearBtn">Clear</button>
-    <button style="margin-top:8px;" id="undoBtn">Undo</button>
-    <button style="margin-top:8px;" id="redoBtn">Redo</button>
+
+    <body>Controls:</body>
+    <div>
+      <button style="margin-top:8px;" id="clearBtn">Clear</button>
+      <button style="margin-top:8px;" id="undoBtn">Undo</button>
+      <button style="margin-top:8px;" id="redoBtn">Redo</button>
+    </div><br>
+
+    <body>Line Tools:</body>
+    <div>
     <button style="margin-top:8px;" id="thinBtn">Thin</button>
     <button style="margin-top:8px;" id="thickBtn">Thick</button>
+    </div><br>
+
+
+    <body>Stickers:</body>
+    <div>
+      <button style="margin-top:8px;" id="demonSticker">👹</button>
+      <button style="margin-top:8px;" id="alienSticker">👽</button>
+      <button style="margin-top:8px;" id="ghostSticker">👻</button>
+    </div><br>
+
   </div>
 `;
 
