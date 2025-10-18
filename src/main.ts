@@ -69,7 +69,7 @@ const thickBtn = document.getElementById("thickBtn")!;
 const THIN_WIDTH = 1;
 const THICK_WIDTH = 5;
 
-let currentTool: 'thin' | 'thick' = 'thin';
+let currentTool: "thin" | "thick" = "thin";
 currentLineWidth = THIN_WIDTH;
 
 thinBtn.onclick = () => {
