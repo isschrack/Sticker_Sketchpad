@@ -120,3 +120,67 @@ canvas.addEventListener("mouseleave", () => {
   cursor.active = false;
   currentStroke = null;
 });
+
+type Point = { x: number; y: number };
+
+export class MarkerLine {
+  points: Point[];
+  color: string;
+  width: number;
+
+  constructor(startX: number, startY: number, color = "#000", width = 3) {
+    this.points = [{ x: startX, y: startY }];
+    this.color = color;
+    this.width = width;
+  }
+
+  // Called by render loop: draw the line on the given 2D context
+  display(ctx: CanvasRenderingContext2D) {
+    if (this.points.length === 0) return;
+
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = this.width;
+
+    ctx.beginPath();
+    const p0 = this.points[0];
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i < this.points.length; i++) {
+      const p = this.points[i];
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Called by the active command while the user drags.
+  drag(x: number, y: number) {
+    // Simple append; you could add point thinning, sampling, smoothing here.
+    this.points.push({ x, y });
+  }
+
+  // Return a shallow serializable representation
+  toJSON() {
+    return {
+      type: "MarkerLine",
+      points: this.points,
+      color: this.color,
+      width: this.width,
+    };
+  }
+
+  static fromJSON(obj: any) {
+    const ml = new MarkerLine(0, 0, obj.color, obj.width);
+    ml.points = obj.points ?? [];
+    return ml;
+  }
+
+  // Provide a clone for safe pushing to undo stack
+  clone(): MarkerLine {
+    const copy = new MarkerLine(0, 0, this.color, this.width);
+    copy.points = this.points.map((p) => ({ x: p.x, y: p.y }));
+    return copy;
+  }
+}
