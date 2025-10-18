@@ -78,6 +78,30 @@ class MarkerPreview implements ToolPreview {
 // Nullable global preview reference. When non-null, redrawAll will render it.
 let currentPreview: ToolPreview | null = null;
 
+class StickerPreview implements ToolPreview {
+  x: number;
+  y: number;
+  emoji: string;
+  size: number;
+
+  constructor(x: number, y: number, emoji = "👻", size = 18) {
+    this.x = x;
+    this.y = y;
+    this.emoji = emoji;
+    this.size = size;
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    // Use a font-based draw so emoji render crisply; center the emoji
+    ctx.font = `${this.size}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.emoji, this.x, this.y);
+    ctx.restore();
+  }
+}
+
 const clearBtn = document.getElementById("clearBtn") as HTMLButtonElement;
 clearBtn.onclick = () => {
   // Clear the model and redraw
@@ -112,25 +136,70 @@ redoBtn.onclick = () => {
 
 const thinBtn = document.getElementById("thinBtn")!;
 const thickBtn = document.getElementById("thickBtn")!;
+const demonSticker = document.getElementById(
+  "demonSticker",
+) as HTMLButtonElement;
+const alienSticker = document.getElementById(
+  "alienSticker",
+) as HTMLButtonElement;
+const ghostSticker = document.getElementById(
+  "ghostSticker",
+) as HTMLButtonElement;
 
 const THIN_WIDTH = 1;
 const THICK_WIDTH = 5;
 
-let currentTool: "thin" | "thick" = "thin";
+let currentTool: "thin" | "thick" | "sticker" = "thin";
 currentLineWidth = THIN_WIDTH;
+
+// If a sticker tool is selected, this holds the emoji; otherwise null.
+let currentSticker: string | null = null;
+
+// Helper to clear selected UI state for all tools
+function clearAllSelections() {
+  thinBtn.classList.remove("selectedTool");
+  thickBtn.classList.remove("selectedTool");
+  demonSticker.classList.remove("selectedTool");
+  alienSticker.classList.remove("selectedTool");
+  ghostSticker.classList.remove("selectedTool");
+}
 
 thinBtn.onclick = () => {
   currentTool = "thin";
   currentLineWidth = THIN_WIDTH;
+  currentSticker = null;
+  clearAllSelections();
   thinBtn.classList.add("selectedTool");
-  thickBtn.classList.remove("selectedTool");
 };
 
 thickBtn.onclick = () => {
   currentTool = "thick";
   currentLineWidth = THICK_WIDTH;
+  currentSticker = null;
+  clearAllSelections();
   thickBtn.classList.add("selectedTool");
-  thinBtn.classList.remove("selectedTool");
+};
+
+// Sticker button handlers: select sticker tool and remember which emoji
+demonSticker.onclick = () => {
+  currentTool = "sticker";
+  currentSticker = "👹";
+  clearAllSelections();
+  demonSticker.classList.add("selectedTool");
+};
+
+alienSticker.onclick = () => {
+  currentTool = "sticker";
+  currentSticker = "👽";
+  clearAllSelections();
+  alienSticker.classList.add("selectedTool");
+};
+
+ghostSticker.onclick = () => {
+  currentTool = "sticker";
+  currentSticker = "👻";
+  clearAllSelections();
+  ghostSticker.classList.add("selectedTool");
 };
 
 // Redraw helper: clears canvas and draws all strokes from the model
@@ -155,6 +224,9 @@ canvas.addEventListener("mousedown", (e) => {
   cursor.y = e.offsetY;
   cursor.active = true;
 
+  // Hide preview while the mouse is pressed
+  currentPreview = null;
+
   redoStrokes.length = 0;
   currentStroke = new MarkerLine(cursor.x, cursor.y, "#000", currentLineWidth);
   strokes.push(currentStroke);
@@ -173,12 +245,16 @@ canvas.addEventListener("mousemove", (e) => {
   }
 
   // Mouse is moved while not drawing: show a preview and emit tool-moved
-  currentPreview = new MarkerPreview(
-    cursor.x,
-    cursor.y,
-    "#000",
-    currentLineWidth,
-  );
+  if (currentTool === "sticker" && currentSticker) {
+    currentPreview = new StickerPreview(cursor.x, cursor.y, currentSticker, 24);
+  } else {
+    currentPreview = new MarkerPreview(
+      cursor.x,
+      cursor.y,
+      "#000",
+      currentLineWidth,
+    );
+  }
   canvas.dispatchEvent(
     new CustomEvent("tool-moved", {
       detail: { x: cursor.x, y: cursor.y, width: currentLineWidth },
