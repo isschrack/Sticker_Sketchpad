@@ -31,6 +31,36 @@ let currentLineWidth = 1;
 
 const cursor = { active: false, x: 0, y: 0 };
 
+// Tool preview interface and implementation. Any preview must expose draw(ctx).
+type ToolPreview = { draw(ctx: CanvasRenderingContext2D): void };
+
+class MarkerPreview implements ToolPreview {
+  x: number;
+  y: number;
+  color: string;
+  width: number;
+
+  constructor(x: number, y: number, color = "#000", width = 3) {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.width = width;
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.fillStyle = this.color;
+    const radius = Math.max(1, this.width / 2);
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Nullable global preview reference. When non-null, redrawAll will render it.
+let currentPreview: ToolPreview | null = null;
+
 const clearBtn = document.getElementById("clearBtn") as HTMLButtonElement;
 clearBtn.onclick = () => {
   // Clear the model and redraw
@@ -92,6 +122,10 @@ function redrawAll() {
   for (const m of strokes) {
     m.display(ctx);
   }
+  // Render a preview on top of strokes if present
+  if (currentPreview) {
+    currentPreview.draw(ctx);
+  }
 }
 
 // Observe changes and redraw only when model changes
@@ -111,23 +145,44 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 canvas.addEventListener("mousemove", (e) => {
+  cursor.x = e.offsetX;
+  cursor.y = e.offsetY;
+
   if (cursor.active && currentStroke) {
+    // Update the stroke being drawn
     currentStroke.drag(e.offsetX, e.offsetY);
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
     canvas.dispatchEvent(new CustomEvent("drawing-changed"));
+    return;
   }
+
+  // Mouse is moved while not drawing: show a preview and emit tool-moved
+  currentPreview = new MarkerPreview(
+    cursor.x,
+    cursor.y,
+    "#000",
+    currentLineWidth,
+  );
+  canvas.dispatchEvent(
+    new CustomEvent("tool-moved", {
+      detail: { x: cursor.x, y: cursor.y, width: currentLineWidth },
+    }),
+  );
+  canvas.dispatchEvent(new CustomEvent("drawing-changed"));
 });
 
 canvas.addEventListener("mouseup", (e) => {
   cursor.active = false;
   currentStroke = null;
+  // Clear preview on mouseup: preview is only shown when mouse isn't down
+  currentPreview = null;
 });
 
 // Also handle mouseleave to end stroke if the user drags out of canvas
 canvas.addEventListener("mouseleave", () => {
   cursor.active = false;
   currentStroke = null;
+  // Remove preview when cursor leaves the canvas
+  currentPreview = null;
 });
 
 type Point = { x: number; y: number };
