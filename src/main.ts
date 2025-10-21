@@ -194,12 +194,53 @@ thickBtn.onclick = () => {
 };
 
 // Data-driven sticker definitions (JSON friendly). Edit this array to change
-// which stickers are available.
+// which stickers are available. Each entry stores the emoji as a hex code
+// string (e.g. "1F479"). That keeps the data JSON-friendly and consistent
+// with custom stickers entered by users.
 const STICKERS: { id: string; emoji: string; label?: string }[] = [
-  { id: "demon", emoji: String.fromCodePoint(0x1F479), label: "demon" },
-  { id: "alien", emoji: String.fromCodePoint(0x1F47D), label: "alien" },
-  { id: "ghost", emoji: String.fromCodePoint(0x1F47B), label: "ghost" },
+  { id: "demon", emoji: "1F479", label: "demon" },
+  { id: "alien", emoji: "1F47D", label: "alien" },
+  { id: "ghost", emoji: "1F47B", label: "ghost" },
 ];
+
+// Helpers to convert between hex-code strings and actual emoji characters.
+function isHexCodeString(s: string) {
+  return /^[0-9a-fA-F]{4,6}$/.test(s.replace(/^0x|^U\+/i, ""));
+}
+
+function normalizeHex(s: string) {
+  return s.replace(/^0x/i, "").replace(/^U\+/i, "").toUpperCase();
+}
+
+function emojiFromHexOrLiteral(s: string) {
+  const trimmed = s.trim();
+  if (trimmed.length === 0) return "";
+  if (
+    isHexCodeString(trimmed) || /^0x[0-9a-fA-F]+$/.test(trimmed) ||
+    /^U\+[0-9A-Fa-f]+$/.test(trimmed)
+  ) {
+    const hex = normalizeHex(trimmed);
+    return String.fromCodePoint(parseInt(hex, 16));
+  }
+  // Otherwise assume the input contains an actual emoji/character; take the first code point.
+  const cp = Array.from(trimmed)[0];
+  if (!cp) return "";
+  return cp;
+}
+
+function hexFromInput(s: string) {
+  const trimmed = s.trim();
+  if (trimmed.length === 0) return null;
+  if (
+    isHexCodeString(trimmed) || /^0x[0-9a-fA-F]+$/.test(trimmed) ||
+    /^U\+[0-9A-Fa-f]+$/.test(trimmed)
+  ) {
+    return normalizeHex(trimmed);
+  }
+  const cp = Array.from(trimmed)[0];
+  if (!cp) return null;
+  return cp.codePointAt(0)!.toString(16).toUpperCase();
+}
 
 // Generate the sticker buttons from the single source of truth above.
 const stickersContainer = document.getElementById("stickers")!;
@@ -207,14 +248,16 @@ function addStickerButton(s: { id: string; emoji: string; label?: string }) {
   const btn = document.createElement("button");
   btn.style.marginTop = "8px";
   btn.id = `${s.id}Sticker`;
-  btn.textContent = s.emoji;
+  btn.textContent = emojiFromHexOrLiteral(s.emoji);
   btn.title = s.label ?? s.emoji;
   btn.onclick = () => {
     currentTool = "sticker";
+    // Store the raw hex-or-literal value in currentSticker; conversions
+    // to actual character happen when rendering/placing.
     currentSticker = s.emoji;
     clearAllSelections();
     btn.classList.add("selectedTool");
-    TOOL_MOVED_DETAIL.emoji = currentSticker;
+    TOOL_MOVED_DETAIL.emoji = emojiFromHexOrLiteral(String(currentSticker));
     TOOL_MOVED_DETAIL.x = null;
     TOOL_MOVED_DETAIL.y = null;
     TOOL_MOVED_DETAIL.width = null;
@@ -240,7 +283,10 @@ addStickerBtn.onclick = () => {
   const trimmed = input.trim();
   if (trimmed.length === 0) return; // ignore empty
   const newId = `custom-${Date.now()}`;
-  const entry = { id: newId, emoji: trimmed };
+  // Store custom stickers as hex strings when possible, matching the
+  // STICKERS array format.
+  const hex = hexFromInput(trimmed) ?? trimmed;
+  const entry = { id: newId, emoji: hex };
   STICKERS.push(entry);
   const newBtn = addStickerButton(entry);
   // Select the newly created sticker and notify listeners
@@ -277,7 +323,13 @@ canvas.addEventListener("mousedown", (e) => {
   if (currentTool === "sticker" && currentSticker) {
     // Place a sticker command into the model. currentStroke holds the live
     // sticker so subsequent drag calls will reposition it.
-    const s = new Sticker(cursor.x, cursor.y, currentSticker, 32);
+    const s = new Sticker(
+      cursor.x,
+      cursor.y,
+      // convert stored hex-or-literal to an actual glyph
+      emojiFromHexOrLiteral(String(currentSticker)),
+      32,
+    );
     currentStroke = s;
     strokes.push(s);
   } else {
@@ -307,7 +359,12 @@ canvas.addEventListener("mousemove", (e) => {
 
   // Mouse is moved while not drawing: show a preview and emit tool-moved
   if (currentTool === "sticker" && currentSticker) {
-    currentPreview = new StickerPreview(cursor.x, cursor.y, currentSticker, 24);
+    currentPreview = new StickerPreview(
+      cursor.x,
+      cursor.y,
+      emojiFromHexOrLiteral(String(currentSticker)),
+      24,
+    );
   } else {
     currentPreview = new MarkerPreview(
       cursor.x,
