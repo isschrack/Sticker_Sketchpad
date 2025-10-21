@@ -294,6 +294,50 @@ addStickerBtn.onclick = () => {
 };
 stickersContainer.appendChild(addStickerBtn);
 
+// Export button: render the display list into a 1024x1024 canvas and download
+const exportBtn = document.createElement("button");
+exportBtn.style.marginTop = "8px";
+exportBtn.id = "exportBtn";
+exportBtn.textContent = "Export PNG";
+exportBtn.title = "Export a 1024x1024 PNG of the drawing";
+exportBtn.onclick = () => {
+  // Create offscreen canvas
+  const outSize = 1024;
+  const outCanvas = document.createElement("canvas");
+  outCanvas.width = outSize;
+  outCanvas.height = outSize;
+  const outCtx = outCanvas.getContext("2d")!;
+
+  // Scale so that the original 256x256 content maps to 1024x1024 (4x)
+  const scaleFactor = outSize / canvas.width; // should be 4
+  outCtx.save();
+  outCtx.scale(scaleFactor, scaleFactor);
+
+  // Draw each displayable in the strokes list. Skip any preview objects
+  for (const item of strokes) {
+    // Only call display — previews are not stored in strokes so this is safe
+    if (typeof item.display === "function") {
+      item.display(outCtx as CanvasRenderingContext2D);
+    }
+  }
+
+  outCtx.restore();
+
+  // Convert to PNG and trigger download
+  outCanvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sticker-sketchpad.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+};
+stickersContainer.appendChild(exportBtn);
+
 // Redraw helper: clears canvas and draws all strokes from the model
 function redrawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
