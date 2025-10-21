@@ -203,7 +203,7 @@ const STICKERS: { id: string; emoji: string; label?: string }[] = [
 
 // Generate the sticker buttons from the single source of truth above.
 const stickersContainer = document.getElementById("stickers")!;
-for (const s of STICKERS) {
+function addStickerButton(s: { id: string; emoji: string; label?: string }) {
   const btn = document.createElement("button");
   btn.style.marginTop = "8px";
   btn.id = `${s.id}Sticker`;
@@ -221,7 +221,32 @@ for (const s of STICKERS) {
     canvas.dispatchEvent(TOOL_MOVED_EVENT);
   };
   stickersContainer.appendChild(btn);
+  return btn;
 }
+
+for (const s of STICKERS) {
+  addStickerButton(s);
+}
+
+// Button to add a custom sticker via prompt()
+const addStickerBtn = document.createElement("button");
+addStickerBtn.style.marginTop = "8px";
+addStickerBtn.id = "addStickerBtn";
+addStickerBtn.textContent = "Add sticker";
+addStickerBtn.title = "Create a custom sticker (emoji or text)";
+addStickerBtn.onclick = () => {
+  const input = prompt("Enter custom sticker (emoji or text):", "⭐");
+  if (input === null) return; // user cancelled
+  const trimmed = input.trim();
+  if (trimmed.length === 0) return; // ignore empty
+  const newId = `custom-${Date.now()}`;
+  const entry = { id: newId, emoji: trimmed };
+  STICKERS.push(entry);
+  const newBtn = addStickerButton(entry);
+  // Select the newly created sticker and notify listeners
+  newBtn.click();
+};
+stickersContainer.appendChild(addStickerBtn);
 
 // Redraw helper: clears canvas and draws all strokes from the model
 function redrawAll() {
