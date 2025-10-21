@@ -22,12 +22,9 @@ document.body.innerHTML = `
 
 
     <body>Stickers:</body>
-    <div>
-      <button style="margin-top:8px;" id="demonSticker">👹</button>
-      <button style="margin-top:8px;" id="alienSticker">👽</button>
-      <button style="margin-top:8px;" id="ghostSticker">👻</button>
-    </div><br>
-
+    <div id="stickers"></div>
+    <button id="customSticker">Add Your Own!</button>
+    <br>
   </div>
 `;
 
@@ -159,15 +156,6 @@ redoBtn.onclick = () => {
 
 const thinBtn = document.getElementById("thinBtn")!;
 const thickBtn = document.getElementById("thickBtn")!;
-const demonSticker = document.getElementById(
-  "demonSticker",
-) as HTMLButtonElement;
-const alienSticker = document.getElementById(
-  "alienSticker",
-) as HTMLButtonElement;
-const ghostSticker = document.getElementById(
-  "ghostSticker",
-) as HTMLButtonElement;
 
 const THIN_WIDTH = 1;
 const THICK_WIDTH = 5;
@@ -182,9 +170,11 @@ let currentSticker: string | null = null;
 function clearAllSelections() {
   thinBtn.classList.remove("selectedTool");
   thickBtn.classList.remove("selectedTool");
-  demonSticker.classList.remove("selectedTool");
-  alienSticker.classList.remove("selectedTool");
-  ghostSticker.classList.remove("selectedTool");
+  // Remove selection class from any generated sticker buttons
+  const stickerButtons = document.querySelectorAll<HTMLButtonElement>(
+    "#stickers button",
+  );
+  for (const b of stickerButtons) b.classList.remove("selectedTool");
 }
 
 thinBtn.onclick = () => {
@@ -203,43 +193,35 @@ thickBtn.onclick = () => {
   thickBtn.classList.add("selectedTool");
 };
 
-// Sticker button handlers: select sticker tool and remember which emoji
-demonSticker.onclick = () => {
-  currentTool = "sticker";
-  // Use the provided hex code U+1F479 for the demon sticker
-  currentSticker = String.fromCodePoint(0x1F479);
-  clearAllSelections();
-  demonSticker.classList.add("selectedTool");
-  TOOL_MOVED_DETAIL.emoji = currentSticker;
-  TOOL_MOVED_DETAIL.x = null;
-  TOOL_MOVED_DETAIL.y = null;
-  TOOL_MOVED_DETAIL.width = null;
-  canvas.dispatchEvent(TOOL_MOVED_EVENT);
-};
+// Data-driven sticker definitions (JSON friendly). Edit this array to change
+// which stickers are available.
+const STICKERS: { id: string; emoji: string; label?: string }[] = [
+  { id: "demon", emoji: String.fromCodePoint(0x1F479), label: "demon" },
+  { id: "alien", emoji: String.fromCodePoint(0x1F47D), label: "alien" },
+  { id: "ghost", emoji: String.fromCodePoint(0x1F47B), label: "ghost" },
+];
 
-alienSticker.onclick = () => {
-  currentTool = "sticker";
-  currentSticker = String.fromCodePoint(0x1F47D);
-  clearAllSelections();
-  alienSticker.classList.add("selectedTool");
-  TOOL_MOVED_DETAIL.emoji = currentSticker;
-  TOOL_MOVED_DETAIL.x = null;
-  TOOL_MOVED_DETAIL.y = null;
-  TOOL_MOVED_DETAIL.width = null;
-  canvas.dispatchEvent(TOOL_MOVED_EVENT);
-};
-
-ghostSticker.onclick = () => {
-  currentTool = "sticker";
-  currentSticker = String.fromCodePoint(0x1F47B);
-  clearAllSelections();
-  ghostSticker.classList.add("selectedTool");
-  TOOL_MOVED_DETAIL.emoji = currentSticker;
-  TOOL_MOVED_DETAIL.x = null;
-  TOOL_MOVED_DETAIL.y = null;
-  TOOL_MOVED_DETAIL.width = null;
-  canvas.dispatchEvent(TOOL_MOVED_EVENT);
-};
+// Generate the sticker buttons from the single source of truth above.
+const stickersContainer = document.getElementById("stickers")!;
+for (const s of STICKERS) {
+  const btn = document.createElement("button");
+  btn.style.marginTop = "8px";
+  btn.id = `${s.id}Sticker`;
+  btn.textContent = s.emoji;
+  btn.title = s.label ?? s.emoji;
+  btn.onclick = () => {
+    currentTool = "sticker";
+    currentSticker = s.emoji;
+    clearAllSelections();
+    btn.classList.add("selectedTool");
+    TOOL_MOVED_DETAIL.emoji = currentSticker;
+    TOOL_MOVED_DETAIL.x = null;
+    TOOL_MOVED_DETAIL.y = null;
+    TOOL_MOVED_DETAIL.width = null;
+    canvas.dispatchEvent(TOOL_MOVED_EVENT);
+  };
+  stickersContainer.appendChild(btn);
+}
 
 // Redraw helper: clears canvas and draws all strokes from the model
 function redrawAll() {
