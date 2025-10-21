@@ -8,22 +8,22 @@ document.body.innerHTML = `
     <canvas id="sketchpad" style="border:1px solid black;"></canvas>
 
     <body>Controls:</body>
-    <div>
+    <div id="controls">
       <button style="margin-top:8px;" id="clearBtn">Clear</button>
       <button style="margin-top:8px;" id="undoBtn">Undo</button>
       <button style="margin-top:8px;" id="redoBtn">Redo</button>
+      <button style="margin-top:8px;" id="exportBtn">Export PNG</button>
     </div><br>
 
     <body>Line Tools:</body>
     <div>
-    <button style="margin-top:8px;" id="thinBtn">Thin</button>
-    <button style="margin-top:8px;" id="thickBtn">Thick</button>
+      <button style="margin-top:8px;" id="thinBtn">Thin</button>
+      <button style="margin-top:8px;" id="thickBtn">Thick</button>
     </div><br>
-
 
     <body>Stickers:</body>
     <div id="stickers"></div>
-    <button id="customSticker">Add Your Own!</button>
+  <button id="customSticker">Add Your Own!</button>
     <br>
   </div>
 `;
@@ -58,7 +58,7 @@ const cursor = { active: false, x: 0, y: 0 };
 // Tool preview interface and implementation. Any preview must expose draw(ctx).
 type ToolPreview = { draw(ctx: CanvasRenderingContext2D): void };
 
-class MarkerPreview implements ToolPreview {
+class BrushPreview implements ToolPreview {
   x: number;
   y: number;
   color: string;
@@ -98,13 +98,13 @@ const TOOL_MOVED_EVENT = new CustomEvent("tool-moved", {
   detail: TOOL_MOVED_DETAIL,
 });
 
-class StickerPreview implements ToolPreview {
+class DecalPreview implements ToolPreview {
   x: number;
   y: number;
   emoji: string;
   size: number;
 
-  constructor(x: number, y: number, emoji = "👻", size = 18) {
+  constructor(x: number, y: number, emoji = "👻", size = 36) {
     this.x = x;
     this.y = y;
     this.emoji = emoji;
@@ -157,8 +157,9 @@ redoBtn.onclick = () => {
 const thinBtn = document.getElementById("thinBtn")!;
 const thickBtn = document.getElementById("thickBtn")!;
 
-const THIN_WIDTH = 1;
-const THICK_WIDTH = 5;
+// Tighter, nicer feeling strokes: thin is visible, thick is pleasantly bold
+const THIN_WIDTH = 2;
+const THICK_WIDTH = 10;
 
 let currentTool: "thin" | "thick" | "sticker" = "thin";
 currentLineWidth = THIN_WIDTH;
@@ -195,8 +196,8 @@ thickBtn.onclick = () => {
 
 // Data-driven sticker definitions (JSON friendly). Edit this array to change
 // which stickers are available. Each entry stores the emoji as a hex code
-// string (e.g. "1F479"). That keeps the data JSON-friendly and consistent
-// with custom stickers entered by users.
+// string (e.g. "1F308"). These examples are chosen to feel friendly and
+// expressive.
 const STICKERS: { id: string; emoji: string; label?: string }[] = [
   { id: "demon", emoji: "1F479", label: "demon" },
   { id: "alien", emoji: "1F47D", label: "alien" },
@@ -336,7 +337,13 @@ exportBtn.onclick = () => {
     URL.revokeObjectURL(url);
   });
 };
-stickersContainer.appendChild(exportBtn);
+
+// Attach the export handler to the Export button already placed in the
+// Controls HTML so there's a single Export control in the UI.
+const exportBtnExisting = document.getElementById("exportBtn") as
+  | HTMLButtonElement
+  | null;
+if (exportBtnExisting) exportBtnExisting.onclick = exportBtn.onclick;
 
 // Redraw helper: clears canvas and draws all strokes from the model
 function redrawAll() {
@@ -365,19 +372,19 @@ canvas.addEventListener("mousedown", (e) => {
 
   redoStrokes.length = 0;
   if (currentTool === "sticker" && currentSticker) {
-    // Place a sticker command into the model. currentStroke holds the live
-    // sticker so subsequent drag calls will reposition it.
-    const s = new Sticker(
+    // Place a decal command into the model. currentStroke holds the live
+    // decal so subsequent drag calls will reposition it.
+    const s = new Decal(
       cursor.x,
       cursor.y,
       // convert stored hex-or-literal to an actual glyph
       emojiFromHexOrLiteral(String(currentSticker)),
-      32,
+      40,
     );
     currentStroke = s;
     strokes.push(s);
   } else {
-    currentStroke = new MarkerLine(
+    currentStroke = new BrushStroke(
       cursor.x,
       cursor.y,
       "#000",
@@ -403,14 +410,14 @@ canvas.addEventListener("mousemove", (e) => {
 
   // Mouse is moved while not drawing: show a preview and emit tool-moved
   if (currentTool === "sticker" && currentSticker) {
-    currentPreview = new StickerPreview(
+    currentPreview = new DecalPreview(
       cursor.x,
       cursor.y,
       emojiFromHexOrLiteral(String(currentSticker)),
-      24,
+      36,
     );
   } else {
-    currentPreview = new MarkerPreview(
+    currentPreview = new BrushPreview(
       cursor.x,
       cursor.y,
       "#000",
@@ -442,7 +449,7 @@ canvas.addEventListener("mouseleave", () => {
 
 type Point = { x: number; y: number };
 
-export class MarkerLine {
+export class BrushStroke {
   points: Point[];
   color: string;
   width: number;
@@ -483,7 +490,7 @@ export class MarkerLine {
   // Return a shallow serializable representation
   toJSON() {
     return {
-      type: "MarkerLine",
+      type: "BrushStroke",
       points: this.points,
       color: this.color,
       width: this.width,
@@ -492,22 +499,22 @@ export class MarkerLine {
 
   static fromJSON(
     obj: { color?: string; width?: number; points?: Point[] },
-  ): MarkerLine {
-    const ml = new MarkerLine(0, 0, obj.color, obj.width);
+  ): BrushStroke {
+    const ml = new BrushStroke(0, 0, obj.color, obj.width);
     ml.points = obj.points ?? [];
     return ml;
   }
 
   // Provide a clone for safe pushing to undo stack
-  clone(): MarkerLine {
-    const copy = new MarkerLine(0, 0, this.color, this.width);
+  clone(): BrushStroke {
+    const copy = new BrushStroke(0, 0, this.color, this.width);
     copy.points = this.points.map((p) => ({ x: p.x, y: p.y }));
     return copy;
   }
 }
 
 // Sticker command: placed as a single object; drag(x,y) repositions it.
-export class Sticker implements Displayable {
+export class Decal implements Displayable {
   x: number;
   y: number;
   emoji: string;
@@ -537,7 +544,7 @@ export class Sticker implements Displayable {
 
   toJSON() {
     return {
-      type: "Sticker",
+      type: "Decal",
       x: this.x,
       y: this.y,
       emoji: this.emoji,
@@ -548,7 +555,7 @@ export class Sticker implements Displayable {
   static fromJSON(
     obj: { x?: number; y?: number; emoji?: string; size?: number },
   ) {
-    return new Sticker(
+    return new Decal(
       obj.x ?? 0,
       obj.y ?? 0,
       obj.emoji ?? "👻",
@@ -557,6 +564,6 @@ export class Sticker implements Displayable {
   }
 
   clone() {
-    return new Sticker(this.x, this.y, this.emoji, this.size);
+    return new Decal(this.x, this.y, this.emoji, this.size);
   }
 }
