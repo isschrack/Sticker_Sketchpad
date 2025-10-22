@@ -1,7 +1,7 @@
-.icon {
-  width: 64px;
-  vertical-align: top;
-  border: 1px solid salmon;
+h1 {
+  font-family: "Bonbon", cursive;
+  font-weight: 700;
+  font-style: normal;
 }
 
 .selectedTool {
@@ -27,4 +27,6 @@ body {
 #controls button, #stickers button, #lineTools button {
   margin: 0; /* remove per-button inline vertical margin that was inconsistent */
   padding: 6px 10px;
+  background-color: aquamarine;
+  border-color:aqua;
 }

@@ -2,6 +2,9 @@
 import "./style.css";
 
 document.body.innerHTML = `
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bonbon&display=swap');
+  </style>
   <h1>Draw the Thing!</h1>
 
   <div id="sketch-wrap">
