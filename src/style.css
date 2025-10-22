@@ -8,3 +8,23 @@
   background: #eef;
   outline: 2px solid #09f;
 }
+
+body {
+  font-family: Georgia;
+  gap: 8px;
+}
+
+/* make the groups lay out their buttons with a consistent gap */
+#controls, #stickers, #lineTools {
+  display: flex;
+  gap: 8px; /* horizontal/vertical gap between buttons */
+  flex-wrap: wrap; /* allow buttons to wrap instead of squeezing */
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* ensure button spacing is consistent as a fallback */
+#controls button, #stickers button, #lineTools button {
+  margin: 0; /* remove per-button inline vertical margin that was inconsistent */
+  padding: 6px 10px;
+}

@@ -16,14 +16,13 @@ document.body.innerHTML = `
     </div><br>
 
     <body>Line Tools:</body>
-    <div>
+    <div id="lineTools">
       <button style="margin-top:8px;" id="thinBtn">Thin</button>
       <button style="margin-top:8px;" id="thickBtn">Thick</button>
     </div><br>
 
     <body>Stickers:</body>
     <div id="stickers"></div>
-  <button id="customSticker">Add Your Own!</button>
     <br>
   </div>
 `;
@@ -276,7 +275,7 @@ for (const s of STICKERS) {
 const addStickerBtn = document.createElement("button");
 addStickerBtn.style.marginTop = "8px";
 addStickerBtn.id = "addStickerBtn";
-addStickerBtn.textContent = "Add sticker";
+addStickerBtn.textContent = "Add Your Own!";
 addStickerBtn.title = "Create a custom sticker (emoji or text)";
 addStickerBtn.onclick = () => {
   const input = prompt("Enter custom sticker (emoji or text):", "⭐");
