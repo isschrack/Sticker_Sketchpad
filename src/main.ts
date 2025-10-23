@@ -26,6 +26,7 @@ document.body.innerHTML = `
 
     <body>Stickers:</body>
     <div id="stickers"></div>
+    <div id="customStickers"></div>
     <br>
   </div>
 `;
@@ -191,8 +192,9 @@ function clearAllSelections() {
   thinBtn.classList.remove("selectedTool");
   thickBtn.classList.remove("selectedTool");
   // Remove selection class from any generated sticker buttons
+  // Query the custom stickers container (id is `customStickers` in the DOM)
   const stickerButtons = document.querySelectorAll<HTMLButtonElement>(
-    "#stickers button",
+    "#customStickers button",
   );
   for (const b of stickerButtons) b.classList.remove("selectedTool");
 }
@@ -315,7 +317,16 @@ addStickerBtn.onclick = () => {
   // Select the newly created sticker and notify listeners
   newBtn.click();
 };
-stickersContainer.appendChild(addStickerBtn);
+// Place the "Add Your Own" button into the custom stickers area so user-created
+// stickers appear separately from the built-in sticker set.
+const customStickersContainer = document.getElementById("customStickers");
+if (customStickersContainer) {
+  customStickersContainer.appendChild(addStickerBtn);
+} else {
+  // Fallback: append to the main stickers container if the custom area is
+  // missing for some reason.
+  stickersContainer.appendChild(addStickerBtn);
+}
 
 // Export button: render the display list into a 1024x1024 canvas and download
 const exportBtn = document.createElement("button");

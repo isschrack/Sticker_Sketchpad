@@ -15,7 +15,7 @@ body {
 }
 
 /* make the groups lay out their buttons with a consistent gap */
-#controls, #stickers, #lineTools {
+#controls, #stickers, #lineTools, #customStickers {
   display: flex;
   gap: 8px; /* horizontal/vertical gap between buttons */
   flex-wrap: wrap; /* allow buttons to wrap instead of squeezing */
@@ -24,7 +24,7 @@ body {
 }
 
 /* ensure button spacing is consistent as a fallback */
-#controls button, #stickers button, #lineTools button {
+#controls button, #stickers button, #lineTools button, #customStickers button {
   margin: 0; /* remove per-button inline vertical margin that was inconsistent */
   padding: 6px 10px;
   background-color: aquamarine;
