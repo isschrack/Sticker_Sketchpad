@@ -88,8 +88,12 @@ class BrushPreview implements ToolPreview {
     ctx.save();
     ctx.fillStyle = this.color;
     const radius = Math.max(1, this.width / 2);
+    // Draw a small rotated square to hint rotation for brush tools
+    ctx.translate(this.x, this.y);
+    // rotation will be provided via TOOL_MOVED_DETAIL when creating preview
+    // but BrushPreview itself doesn't store rotation — callers can rotate ctx
     ctx.beginPath();
-    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -101,21 +105,50 @@ let currentPreview: ToolPreview | null = null;
 // Single mutable detail object and a single CustomEvent instance for "tool-moved".
 // We reuse the same event object and update its detail object's properties before
 // dispatch so we don't allocate a new CustomEvent every time.
+// Extend tool-moved details to include color and rotation so previews can
+// reflect the currently selected randomized variation.
 const TOOL_MOVED_DETAIL: {
   x: number | null;
   y: number | null;
   width: number | null;
   emoji: string | null;
-} = { x: 0, y: 0, width: currentLineWidth, emoji: null };
+  color?: string | null;
+  rotation?: number | null; // degrees
+} = {
+  x: 0,
+  y: 0,
+  width: currentLineWidth,
+  emoji: null,
+  color: currentColor,
+  rotation: 0,
+};
 const TOOL_MOVED_EVENT = new CustomEvent("tool-moved", {
   detail: TOOL_MOVED_DETAIL,
 });
+
+// Helpers for generating random color and rotation values
+function randomRotation() {
+  // Random rotation between -45 and 45 degrees
+  return Math.floor(Math.random() * 91) - 45;
+}
+
+function randomColor() {
+  // Generate a pleasant pastel-ish color
+  const r = Math.floor(150 + Math.random() * 105);
+  const g = Math.floor(150 + Math.random() * 105);
+  const b = Math.floor(150 + Math.random() * 105);
+  return `#${r.toString(16).padStart(2, "0")}${
+    g.toString(16).padStart(2, "0")
+  }${b.toString(16).padStart(2, "0")}`;
+}
 
 class DecalPreview implements ToolPreview {
   x: number;
   y: number;
   emoji: string;
   size: number;
+  color?: string | null;
+  rotation?: number | null;
 
   /**
    * DecalPreview constructor
@@ -133,11 +166,19 @@ class DecalPreview implements ToolPreview {
 
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
+    // Apply rotation and color tint if provided via TOOL_MOVED_DETAIL
+    if (this.rotation) ctx.translate(this.x, this.y);
+    if (this.rotation) ctx.rotate((this.rotation * Math.PI) / 180);
     // Use a font-based draw so emoji render crisply; center the emoji
     ctx.font = `${this.size}px serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.emoji, this.x, this.y);
+    if (this.color) ctx.fillStyle = this.color;
+    ctx.fillText(
+      this.emoji,
+      this.rotation ? 0 : this.x,
+      this.rotation ? 0 : this.y,
+    );
     ctx.restore();
   }
 }
@@ -186,6 +227,8 @@ currentLineWidth = THIN_WIDTH;
 
 // If a sticker tool is selected, this holds the emoji; otherwise null.
 let currentSticker: string | null = null;
+// Rotation (degrees) to apply to next decal/preview and a color to use.
+let currentRotation = 0; // degrees
 
 // Helper to clear selected UI state for all tools
 function clearAllSelections() {
@@ -202,7 +245,10 @@ function clearAllSelections() {
 thinBtn.onclick = () => {
   currentTool = "thin";
   currentLineWidth = THIN_WIDTH;
-  currentColor = "#64c92eff";
+  // Randomize color and rotation for each selection so the user can cycle
+  // variations by clicking the tool button repeatedly.
+  currentColor = randomColor();
+  currentRotation = randomRotation();
   currentSticker = null;
   clearAllSelections();
   thinBtn.classList.add("selectedTool");
@@ -211,8 +257,10 @@ thinBtn.onclick = () => {
 thickBtn.onclick = () => {
   currentTool = "thick";
   currentLineWidth = THICK_WIDTH;
-  // thick tool defaults to pink to make it distinct
-  currentColor = "#ff69b4";
+  // Randomize color and rotation for each selection so the user can cycle
+  // variations by clicking the tool button repeatedly.
+  currentColor = randomColor();
+  currentRotation = randomRotation();
   currentSticker = null;
   clearAllSelections();
   thickBtn.classList.add("selectedTool");
@@ -280,12 +328,18 @@ function addStickerButton(s: { id: string; emoji: string; label?: string }) {
     // Store the raw hex-or-literal value in currentSticker; conversions
     // to actual character happen when rendering/placing.
     currentSticker = s.emoji;
+    // Randomize color/rotation for this sticker selection so each click
+    // yields a new variation the user can preview before placing.
+    currentColor = randomColor();
+    currentRotation = randomRotation();
     clearAllSelections();
     btn.classList.add("selectedTool");
     TOOL_MOVED_DETAIL.emoji = emojiFromHexOrLiteral(String(currentSticker));
     TOOL_MOVED_DETAIL.x = null;
     TOOL_MOVED_DETAIL.y = null;
     TOOL_MOVED_DETAIL.width = null;
+    TOOL_MOVED_DETAIL.color = currentColor;
+    TOOL_MOVED_DETAIL.rotation = currentRotation;
     canvas.dispatchEvent(TOOL_MOVED_EVENT);
   };
   stickersContainer.appendChild(btn);
@@ -413,6 +467,8 @@ canvas.addEventListener("mousedown", (e) => {
       // convert stored hex-or-literal to an actual glyph
       emojiFromHexOrLiteral(String(currentSticker)),
       40,
+      currentColor,
+      currentRotation,
     );
     currentStroke = s;
     strokes.push(s);
@@ -443,12 +499,15 @@ canvas.addEventListener("mousemove", (e) => {
 
   // Mouse is moved while not drawing: show a preview and emit tool-moved
   if (currentTool === "sticker" && currentSticker) {
-    currentPreview = new DecalPreview(
+    const dp = new DecalPreview(
       cursor.x,
       cursor.y,
       emojiFromHexOrLiteral(String(currentSticker)),
       36,
     );
+    dp.color = currentColor;
+    dp.rotation = currentRotation;
+    currentPreview = dp;
   } else {
     currentPreview = new BrushPreview(
       cursor.x,
@@ -559,6 +618,8 @@ export class Decal implements Displayable {
   y: number;
   emoji: string;
   size: number;
+  color?: string | null;
+  rotation?: number | null;
 
   /**
    * Decal constructor
@@ -567,19 +628,35 @@ export class Decal implements Displayable {
    * @param emoji - emoji character for the decal
    * @param size - font size used to render the decal
    */
-  constructor(x: number, y: number, emoji = "👻", size = 24) {
+  constructor(
+    x: number,
+    y: number,
+    emoji = "👻",
+    size = 24,
+    color: string | null = null,
+    rotation: number | null = null,
+  ) {
     this.x = x;
     this.y = y;
     this.emoji = emoji;
     this.size = size;
+    this.color = color ?? null;
+    this.rotation = rotation ?? null;
   }
 
   display(ctx: CanvasRenderingContext2D) {
     ctx.save();
+    if (this.rotation) ctx.translate(this.x, this.y);
+    if (this.rotation) ctx.rotate((this.rotation * Math.PI) / 180);
     ctx.font = `${this.size}px serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.emoji, this.x, this.y);
+    if (this.color) ctx.fillStyle = this.color;
+    ctx.fillText(
+      this.emoji,
+      this.rotation ? 0 : this.x,
+      this.rotation ? 0 : this.y,
+    );
     ctx.restore();
   }
 
@@ -596,21 +673,39 @@ export class Decal implements Displayable {
       y: this.y,
       emoji: this.emoji,
       size: this.size,
+      color: this.color,
+      rotation: this.rotation,
     };
   }
 
   static fromJSON(
-    obj: { x?: number; y?: number; emoji?: string; size?: number },
+    obj: {
+      x?: number;
+      y?: number;
+      emoji?: string;
+      size?: number;
+      color?: string | null;
+      rotation?: number | null;
+    },
   ) {
     return new Decal(
       obj.x ?? 0,
       obj.y ?? 0,
       obj.emoji ?? "👻",
       obj.size ?? 24,
+      obj.color ?? null,
+      obj.rotation ?? null,
     );
   }
 
   clone() {
-    return new Decal(this.x, this.y, this.emoji, this.size);
+    return new Decal(
+      this.x,
+      this.y,
+      this.emoji,
+      this.size,
+      this.color ?? null,
+      this.rotation ?? null,
+    );
   }
 }
