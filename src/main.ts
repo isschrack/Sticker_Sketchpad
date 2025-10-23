@@ -57,6 +57,9 @@ let currentLineWidth = 1;
 
 const cursor = { active: false, x: 0, y: 0 };
 
+// Current drawing color; updated by tool selection (thin/thick) or future UI
+let currentColor = "#000000";
+
 // Tool preview interface and implementation. Any preview must expose draw(ctx).
 type ToolPreview = { draw(ctx: CanvasRenderingContext2D): void };
 
@@ -66,6 +69,13 @@ class BrushPreview implements ToolPreview {
   color: string;
   width: number;
 
+  /**
+   * BrushPreview constructor
+   * @param x - initial x position of the preview
+   * @param y - initial y position of the preview
+   * @param color - preview fill color
+   * @param width - preview radius/width
+   */
   constructor(x: number, y: number, color = "#000", width = 3) {
     this.x = x;
     this.y = y;
@@ -106,6 +116,13 @@ class DecalPreview implements ToolPreview {
   emoji: string;
   size: number;
 
+  /**
+   * DecalPreview constructor
+   * @param x - initial x position of the decal preview
+   * @param y - initial y position of the decal preview
+   * @param emoji - emoji character to preview
+   * @param size - font size for rendering the emoji preview
+   */
   constructor(x: number, y: number, emoji = "👻", size = 36) {
     this.x = x;
     this.y = y;
@@ -183,6 +200,7 @@ function clearAllSelections() {
 thinBtn.onclick = () => {
   currentTool = "thin";
   currentLineWidth = THIN_WIDTH;
+  currentColor = "#64c92eff";
   currentSticker = null;
   clearAllSelections();
   thinBtn.classList.add("selectedTool");
@@ -191,6 +209,8 @@ thinBtn.onclick = () => {
 thickBtn.onclick = () => {
   currentTool = "thick";
   currentLineWidth = THICK_WIDTH;
+  // thick tool defaults to pink to make it distinct
+  currentColor = "#ff69b4";
   currentSticker = null;
   clearAllSelections();
   thickBtn.classList.add("selectedTool");
@@ -389,7 +409,7 @@ canvas.addEventListener("mousedown", (e) => {
     currentStroke = new BrushStroke(
       cursor.x,
       cursor.y,
-      "#000",
+      currentColor,
       currentLineWidth,
     );
     strokes.push(currentStroke);
@@ -422,7 +442,7 @@ canvas.addEventListener("mousemove", (e) => {
     currentPreview = new BrushPreview(
       cursor.x,
       cursor.y,
-      "#000",
+      currentColor,
       currentLineWidth,
     );
   }
@@ -456,6 +476,13 @@ export class BrushStroke {
   color: string;
   width: number;
 
+  /**
+   * BrushStroke constructor
+   * @param startX - starting x coordinate for the stroke
+   * @param startY - starting y coordinate for the stroke
+   * @param color - stroke color
+   * @param width - stroke width
+   */
   constructor(startX: number, startY: number, color = "#000", width = 3) {
     this.points = [{ x: startX, y: startY }];
     this.color = color;
@@ -522,6 +549,13 @@ export class Decal implements Displayable {
   emoji: string;
   size: number;
 
+  /**
+   * Decal constructor
+   * @param x - initial x coordinate of the decal
+   * @param y - initial y coordinate of the decal
+   * @param emoji - emoji character for the decal
+   * @param size - font size used to render the decal
+   */
   constructor(x: number, y: number, emoji = "👻", size = 24) {
     this.x = x;
     this.y = y;

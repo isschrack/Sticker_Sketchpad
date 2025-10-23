@@ -28,5 +28,5 @@ body {
   margin: 0; /* remove per-button inline vertical margin that was inconsistent */
   padding: 6px 10px;
   background-color: aquamarine;
-  border-color:aqua;
+  border-color: aqua;
 }
